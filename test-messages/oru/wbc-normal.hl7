@@ -1,0 +1,4 @@
+MSH|^~\&|LAB|LAB_FACILITY|EHR|EHR_FACILITY|20260415||ORU^R01|MSG004|P|2.5
+PID|1||PAT006||Johnson^Michael||19650810|M
+OBR|1||ORD004|WBC^White Blood Cell Count^L|||20260415|||||||||1122334455^Garcia^Maria
+OBX|1|NM|WBC^White Blood Cell Count^L||8.2|K/uL|4.5-11.0|N|||F

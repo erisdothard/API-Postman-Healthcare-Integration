@@ -1,0 +1,28 @@
+{
+  "resourceType": "Bundle",
+  "type": "searchset",
+  "total": 1,
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "PAT102",
+        "name": [
+          {
+            "use": "official",
+            "family": "Nguyen",
+            "given": ["Thanh"]
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1975-06-12",
+        "extension": [
+          {
+            "url": "http://example.org/fhir/StructureDefinition/admission-status",
+            "valueString": "ADMITTED"
+          }
+        ]
+      }
+    }
+  ]
+}

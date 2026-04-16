@@ -1,0 +1,48 @@
+{
+  "resourceType": "Bundle",
+  "type": "searchset",
+  "total": 1,
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "24",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "2823-3",
+              "display": "Potassium [Moles/volume] in Serum or Plasma"
+            }
+          ],
+          "text": "Potassium"
+        },
+        "subject": {
+          "reference": "Patient/PAT005",
+          "display": "Maria Garcia"
+        },
+        "valueQuantity": {
+          "value": 2.1,
+          "unit": "mEq/L",
+          "system": "http://unitsofmeasure.org"
+        },
+        "interpretation": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                "code": "LL"
+              }
+            ]
+          }
+        ],
+        "performer": [
+          {
+            "display": "James Wilson"
+          }
+        ]
+      }
+    }
+  ]
+}
