@@ -1,0 +1,307 @@
+{
+  "info": {
+    "name": "FHIR Conformance & Regression Suite",
+    "description": "Automated conformance and data-integrity test suite for a BridgeLink HL7-to-FHIR integration pipeline. Validates that the integration engine's FHIR R4 output conforms to spec, that clinical data survives the HL7->FHIR transformation intact, and that routing/edge-case behavior holds. Runnable headless via Newman for CI regression. Endpoints: FHIR_API (8082) returns Observation Bundles; FHIR_Patient_API (8084) returns Patient Bundles.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "obsBase", "value": "http://localhost:8082" },
+    { "key": "patientBase", "value": "http://localhost:8084" }
+  ],
+  "item": [
+    {
+      "name": "1. Conformance",
+      "description": "Asserts the FHIR output is structurally valid R4 - not just that it returns 200.",
+      "item": [
+        {
+          "name": "Observation Bundle is spec-valid FHIR R4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Root is a searchset Bundle', () => {",
+                  "    pm.expect(body.resourceType).to.eql('Bundle');",
+                  "    pm.expect(body.type).to.eql('searchset');",
+                  "});",
+                  "",
+                  "pm.test('total matches entry count', () => {",
+                  "    const n = (body.entry || []).length;",
+                  "    pm.expect(body.total).to.eql(n);",
+                  "});",
+                  "",
+                  "pm.test('Every Observation has required R4 fields', () => {",
+                  "    (body.entry || []).forEach(e => {",
+                  "        const o = e.resource;",
+                  "        pm.expect(o.resourceType, 'resourceType').to.eql('Observation');",
+                  "        pm.expect(o.status, 'status required').to.be.a('string').and.not.empty;",
+                  "        pm.expect(o.code, 'code required').to.exist;",
+                  "        pm.expect(o.code.coding, 'code.coding required').to.be.an('array').that.is.not.empty;",
+                  "        pm.expect(o.subject, 'subject required').to.exist;",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('All codes come from valid coding systems (URIs)', () => {",
+                  "    (body.entry || []).forEach(e => {",
+                  "        const c = e.resource.code.coding[0];",
+                  "        pm.expect(c.system, 'code.system must be a URI').to.match(/^https?:\\/\\//);",
+                  "        pm.expect(c.code, 'code must not be empty').to.be.a('string').and.not.empty;",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{obsBase}}/", "host": ["{{obsBase}}"], "path": [""] }
+          }
+        },
+        {
+          "name": "No observation falls back to UNKNOWN code (terminology coverage)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "",
+                  "// Regression guard: a LOINC-lookup miss writes code='UNKNOWN'.",
+                  "// This caught a real mapping bug (DB stored 'WBC' but map keyed on full name).",
+                  "pm.test('Every code is a real LOINC code, none UNKNOWN', () => {",
+                  "    (body.entry || []).forEach(e => {",
+                  "        const c = e.resource.code.coding[0];",
+                  "        pm.expect(c.code, `${e.resource.code.text} should be LOINC-coded`).to.not.eql('UNKNOWN');",
+                  "        pm.expect(c.system).to.include('loinc.org');",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{obsBase}}/", "host": ["{{obsBase}}"], "path": [""] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Data Integrity Through Transformation",
+      "description": "The core integration test: a known HL7 message produced a known clinical result. Assert the FHIR output preserved that result exactly - value, unit, LOINC code, and interpretation flag all survived the HL7->DB->FHIR pipeline.",
+      "item": [
+        {
+          "name": "PAT101 critical glucose survived the pipeline intact",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Returns exactly PAT101 data', () => {",
+                  "    pm.expect(body.total).to.be.above(0);",
+                  "    body.entry.forEach(e => {",
+                  "        pm.expect(e.resource.subject.reference).to.eql('Patient/PAT101');",
+                  "    });",
+                  "});",
+                  "",
+                  "// Known input: glucose-critical-pat101.hl7 carried OBX glucose 468 mg/dL, flag HH, LOINC 2345-7.",
+                  "// Assert every field survived the transformation unchanged.",
+                  "pm.test('Glucose observation preserved value+unit+code+flag', () => {",
+                  "    const glucose = body.entry",
+                  "        .map(e => e.resource)",
+                  "        .find(o => o.code.coding[0].code === '2345-7');",
+                  "    pm.expect(glucose, 'glucose observation present').to.exist;",
+                  "    pm.expect(glucose.valueQuantity.value, 'value').to.eql(468);",
+                  "    pm.expect(glucose.valueQuantity.unit, 'unit').to.eql('mg/dL');",
+                  "    pm.expect(glucose.code.coding[0].system).to.include('loinc.org');",
+                  "    pm.expect(glucose.interpretation[0].coding[0].code, 'interpretation flag').to.eql('HH');",
+                  "});",
+                  "",
+                  "pm.test('Subject display name carried through', () => {",
+                  "    const o = body.entry[0].resource;",
+                  "    pm.expect(o.subject.display).to.eql('Carlos Rivera');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{obsBase}}/?patient_id=PAT101",
+              "host": ["{{obsBase}}"],
+              "path": [""],
+              "query": [{ "key": "patient_id", "value": "PAT101" }]
+            }
+          }
+        },
+        {
+          "name": "Interpretation flags map correctly across severity range",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "",
+                  "// mirthdb (this endpoint) holds abnormal results by design (Database 2 filter: HH/LL/H/L).",
+                  "// Assert flags are valid HL7 interpretation codes and the critical ones came through.",
+                  "const validFlags = ['HH','LL','H','L','N','A'];",
+                  "pm.test('All interpretation codes are valid HL7 values', () => {",
+                  "    body.entry.forEach(e => {",
+                  "        const flag = e.resource.interpretation[0].coding[0].code;",
+                  "        pm.expect(validFlags, `flag ${flag} valid`).to.include(flag);",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('At least one critical (HH or LL) result present', () => {",
+                  "    const flags = body.entry.map(e => e.resource.interpretation[0].coding[0].code);",
+                  "    const hasCritical = flags.some(f => f === 'HH' || f === 'LL');",
+                  "    pm.expect(hasCritical, 'expected a critical result in abnormal store').to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{obsBase}}/", "host": ["{{obsBase}}"], "path": [""] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Cross-Resource Referential Integrity",
+      "description": "Observations reference patients by Patient/{id}. Assert those references actually resolve against the Patient endpoint - no orphaned references.",
+      "item": [
+        {
+          "name": "Observation subject references resolve to a real Patient",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// pull an observation's subject id first, then the test resolves it",
+                  "pm.sendRequest({url: pm.variables.get('obsBase') + '/?patient_id=PAT101', method:'GET'}, (err, res) => {",
+                  "    if (!err) {",
+                  "        const ref = res.json().entry[0].resource.subject.reference;",
+                  "        pm.variables.set('refId', ref.split('/')[1]);",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Patient endpoint returns a Bundle', () => {",
+                  "    pm.expect(body.resourceType).to.eql('Bundle');",
+                  "});",
+                  "",
+                  "pm.test('Referenced patient PAT101 exists', () => {",
+                  "    const ids = (body.entry || []).map(e => e.resource.id || (e.resource.identifier && e.resource.identifier[0] && e.resource.identifier[0].value));",
+                  "    const found = JSON.stringify(body).includes('PAT101');",
+                  "    pm.expect(found, 'PAT101 should resolve on Patient endpoint').to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{patientBase}}/?patient_id=PAT101",
+              "host": ["{{patientBase}}"],
+              "path": [""],
+              "query": [{ "key": "patient_id", "value": "PAT101" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Query Behavior & Edge Cases",
+      "description": "Failure-path and boundary tests - the part that proves you tested how it behaves when inputs aren't the happy path.",
+      "item": [
+        {
+          "name": "Patient filter actually filters (no leakage)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Filtered query returns ONLY PAT101', () => {",
+                  "    pm.expect(body.total).to.be.above(0);",
+                  "    body.entry.forEach(e => {",
+                  "        pm.expect(e.resource.subject.reference).to.eql('Patient/PAT101');",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{obsBase}}/?patient_id=PAT101",
+              "host": ["{{obsBase}}"],
+              "path": [""],
+              "query": [{ "key": "patient_id", "value": "PAT101" }]
+            }
+          }
+        },
+        {
+          "name": "Unknown patient returns empty Bundle, not an error",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK (empty search is a success, not a failure)', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Empty searchset Bundle with total 0', () => {",
+                  "    pm.expect(body.resourceType).to.eql('Bundle');",
+                  "    pm.expect(body.total).to.eql(0);",
+                  "    pm.expect(body.entry || []).to.be.an('array').that.is.empty;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{obsBase}}/?patient_id=PAT000_DOES_NOT_EXIST",
+              "host": ["{{obsBase}}"],
+              "path": [""],
+              "query": [{ "key": "patient_id", "value": "PAT000_DOES_NOT_EXIST" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

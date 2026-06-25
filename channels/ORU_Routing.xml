@@ -618,9 +618,9 @@ return obx8 == &apos;N&apos;;</script>
           <reattachAttachments>true</reattachAttachments>
         </destinationConnectorProperties>
         <driver>org.postgresql.Driver</driver>
-        <url>jdbc:postgresql://localhost:5433/bridgelink_db</url>
-        <username>postgres</username>
-        <password>postgres</password>
+        <url>jdbc:postgresql://${DB_HOST}:${DB_PORT}/bridgelink_db</url>
+        <username>${DB_USERNAME}</username>
+        <password>${DB_PASSWORD}</password>
         <query>INSERT INTO lab_results (patient_id, patient_name, test_name, result_value, result_status, abnormal_flag, units, ordering_provider, provider_specialty, admission_status)
 VALUES (${patient_id}, ${patient_name}, ${test_name}, ${result_value}, ${result_status}, ${abnormal_flag}, ${units}, ${ordering_provider}, ${provider_specialty}, ${admission_status})</query>
         <useScript>false</useScript>
@@ -648,7 +648,7 @@ try {
     var npi = msg[&apos;OBR&apos;][&apos;OBR.16&apos;][&apos;OBR.16.1&apos;].toString();
     logger.info(&apos;OBR segment: &apos; + msg[&apos;OBR&apos;].toString());
     logger.info(&apos;NPI extracted: [&apos; + npi + &apos;]&apos;);
-    var dbConn = DatabaseConnectionFactory.createDatabaseConnection(&apos;org.postgresql.Driver&apos;, &apos;jdbc:postgresql://localhost:5433/bridgelink_db&apos;, &apos;postgres&apos;, &apos;postgres&apos;);
+    var dbConn = DatabaseConnectionFactory.createDatabaseConnection(&apos;org.postgresql.Driver&apos;, &apos;jdbc:postgresql://${DB_HOST}:${DB_PORT}/bridgelink_db&apos;, &apos;${DB_USERNAME}&apos;, &apos;${DB_PASSWORD}&apos;);
     var result = dbConn.executeCachedQuery(&quot;SELECT first_name, last_name, specialty FROM providers WHERE npi = &apos;&quot; + npi + &quot;&apos;&quot;);
     if (result.next()) {
         orderingProvider = result.getString(&apos;first_name&apos;) + &apos; &apos; + result.getString(&apos;last_name&apos;);
@@ -662,7 +662,7 @@ try {
 // ---- Cross-channel patient lookup ----
 var admissionStatus = &apos;UNKNOWN&apos;;
 try {
-    var patDbConn = DatabaseConnectionFactory.createDatabaseConnection(&apos;org.postgresql.Driver&apos;, &apos;jdbc:postgresql://localhost:5433/bridgelink_db&apos;, &apos;postgres&apos;, &apos;postgres&apos;);
+    var patDbConn = DatabaseConnectionFactory.createDatabaseConnection(&apos;org.postgresql.Driver&apos;, &apos;jdbc:postgresql://${DB_HOST}:${DB_PORT}/bridgelink_db&apos;, &apos;${DB_USERNAME}&apos;, &apos;${DB_PASSWORD}&apos;);
     var patResult = patDbConn.executeCachedQuery(&quot;SELECT admission_status FROM patients WHERE patient_id = &apos;&quot; + patientId + &quot;&apos;&quot;);
     if (patResult.next()) {
         admissionStatus = patResult.getString(&apos;admission_status&apos;);
@@ -884,9 +884,9 @@ channelMap.put(&apos;provider_specialty&apos;, providerSpecialty);</script>
           <reattachAttachments>true</reattachAttachments>
         </destinationConnectorProperties>
         <driver>org.postgresql.Driver</driver>
-        <url>jdbc:postgresql://localhost:5433/mirthdb</url>
-        <username>postgres</username>
-        <password>postgres</password>
+        <url>jdbc:postgresql://${DB_HOST}:${DB_PORT}/mirthdb</url>
+        <username>${DB_USERNAME}</username>
+        <password>${DB_PASSWORD}</password>
         <query>INSERT INTO lab_results (patient_id, patient_name, test_name, result_value, result_status, abnormal_flag, units, ordering_provider, provider_specialty, admission_status)
 VALUES (${patient_id}, ${patient_name}, ${test_name}, ${result_value}, ${result_status}, ${abnormal_flag}, ${units}, ${ordering_provider}, ${provider_specialty}, ${admission_status})</query>
         <useScript>false</useScript>
@@ -912,7 +912,7 @@ var orderingProvider = &apos;UNKNOWN&apos;;
 var providerSpecialty = &apos;UNKNOWN&apos;;
 try {
     var npi = msg[&apos;OBR&apos;][&apos;OBR.16&apos;][&apos;OBR.16.1&apos;].toString();
-    var dbConn = DatabaseConnectionFactory.createDatabaseConnection(&apos;org.postgresql.Driver&apos;, &apos;jdbc:postgresql://localhost:5433/bridgelink_db&apos;, &apos;postgres&apos;, &apos;postgres&apos;);
+    var dbConn = DatabaseConnectionFactory.createDatabaseConnection(&apos;org.postgresql.Driver&apos;, &apos;jdbc:postgresql://${DB_HOST}:${DB_PORT}/bridgelink_db&apos;, &apos;${DB_USERNAME}&apos;, &apos;${DB_PASSWORD}&apos;);
     var result = dbConn.executeCachedQuery(&quot;SELECT first_name, last_name, specialty FROM providers WHERE npi = &apos;&quot; + npi + &quot;&apos;&quot;);
     if (result.next()) {
         orderingProvider = result.getString(&apos;first_name&apos;) + &apos; &apos; + result.getString(&apos;last_name&apos;);
@@ -926,7 +926,7 @@ try {
 // ---- Cross-channel patient lookup ----
 var admissionStatus = &apos;UNKNOWN&apos;;
 try {
-    var patDbConn = DatabaseConnectionFactory.createDatabaseConnection(&apos;org.postgresql.Driver&apos;, &apos;jdbc:postgresql://localhost:5433/bridgelink_db&apos;, &apos;postgres&apos;, &apos;postgres&apos;);
+    var patDbConn = DatabaseConnectionFactory.createDatabaseConnection(&apos;org.postgresql.Driver&apos;, &apos;jdbc:postgresql://${DB_HOST}:${DB_PORT}/bridgelink_db&apos;, &apos;${DB_USERNAME}&apos;, &apos;${DB_PASSWORD}&apos;);
     var patResult = patDbConn.executeCachedQuery(&quot;SELECT admission_status FROM patients WHERE patient_id = &apos;&quot; + patientId + &quot;&apos;&quot;);
     if (patResult.next()) {
         admissionStatus = patResult.getString(&apos;admission_status&apos;);

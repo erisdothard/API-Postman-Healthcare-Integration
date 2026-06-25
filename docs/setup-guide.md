@@ -37,7 +37,7 @@ psql -h localhost -p 5433 -U postgres -d bridgelink_db -f database/seed-data.sql
    - ADT_Processing.xml
    - FHIR_API.xml
    - FHIR_Patient_API.xml
-4. Verify JDBC connection strings match your PostgreSQL setup
+4. Update JDBC connection strings — replace `${DB_HOST}`, `${DB_PORT}`, `${DB_USERNAME}`, `${DB_PASSWORD}` with your PostgreSQL credentials
 5. Deploy all channels
 
 ## Port Assignments

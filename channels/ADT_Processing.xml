@@ -167,9 +167,9 @@
           <reattachAttachments>true</reattachAttachments>
         </destinationConnectorProperties>
         <driver>org.postgresql.Driver</driver>
-        <url>jdbc:postgresql://localhost:5433/bridgelink_db</url>
-        <username>postgres</username>
-        <password>postgres</password>
+        <url>jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}</url>
+        <username>${DB_USERNAME}</username>
+        <password>${DB_PASSWORD}</password>
         <query>INSERT INTO patients (patient_id, first_name, last_name, dob, gender, admission_status, attending_physician, admit_date, last_updated)
 VALUES (${patient_id}, ${first_name}, ${last_name}, TO_DATE(${dob}, &apos;YYYYMMDD&apos;), ${gender}, ${admission_status}, ${attending_physician}, TO_TIMESTAMP(${admit_date}, &apos;YYYYMMDDHH24MISS&apos;), NOW())
 ON CONFLICT (patient_id) DO UPDATE SET
@@ -191,9 +191,9 @@ ON CONFLICT (patient_id) DO UPDATE SET
             <enabled>true</enabled>
             <script>var dbConn = DatabaseConnectionFactory.createDatabaseConnection(
     &apos;org.postgresql.Driver&apos;,
-    &apos;jdbc:postgresql://localhost:5433/mirthdb&apos;,
-    &apos;postgres&apos;,
-    &apos;postgres&apos;
+    &apos;jdbc:postgresql://${DB_HOST}:${DB_PORT}/mirthdb&apos;,
+    &apos;${DB_USERNAME}&apos;,
+    &apos;${DB_PASSWORD}&apos;
 );
 
 var patientId = sourceMap.get(&apos;parameters&apos;) ? sourceMap.get(&apos;parameters&apos;).getParameter(&apos;patient_id&apos;) : null;

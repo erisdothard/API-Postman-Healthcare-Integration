@@ -110,9 +110,9 @@ channelMap.put(&apos;patient_id&apos;, patientId ? patientId : &apos;%&apos;);</
         </destinationConnectorProperties>
         <script>var dbConn = DatabaseConnectionFactory.createDatabaseConnection(
     &apos;org.postgresql.Driver&apos;,
-    &apos;jdbc:postgresql://localhost:5433/mirthdb&apos;,
-    &apos;postgres&apos;,
-    &apos;postgres&apos;
+    &apos;jdbc:postgresql://${DB_HOST}:${DB_PORT}/mirthdb&apos;,
+    &apos;${DB_USERNAME}&apos;,
+    &apos;${DB_PASSWORD}&apos;
 );
 
 var patientId = sourceMap.get(&apos;parameters&apos;) ? sourceMap.get(&apos;parameters&apos;).getParameter(&apos;patient_id&apos;) : null;

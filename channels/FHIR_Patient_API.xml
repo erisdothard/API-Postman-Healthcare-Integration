@@ -166,9 +166,9 @@
         </destinationConnectorProperties>
         <script>var dbConn = DatabaseConnectionFactory.createDatabaseConnection(
     &apos;org.postgresql.Driver&apos;,
-    &apos;jdbc:postgresql://localhost:5433/bridgelink_db&apos;,
-    &apos;postgres&apos;,
-    &apos;postgres&apos;
+    &apos;jdbc:postgresql://${DB_HOST}:${DB_PORT}/bridgelink_db&apos;,
+    &apos;${DB_USERNAME}&apos;,
+    &apos;${DB_PASSWORD}&apos;
 );
 
 var patientId = sourceMap.get(&apos;parameters&apos;) ? sourceMap.get(&apos;parameters&apos;).getParameter(&apos;patient_id&apos;) : null;
