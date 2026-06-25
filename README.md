@@ -1,6 +1,6 @@
-# Healthcare Integration Portfolio
+# API & Postman Healthcare Integration
 
-End-to-end healthcare integration system built with BridgeLink (Mirth Connect), demonstrating HL7 v2.5 message processing, FHIR R4 API exposure, multi-database routing, mid-flight data enrichment, and cross-channel data flow.
+End-to-end healthcare integration system built with BridgeLink (Mirth Connect), demonstrating HL7 v2.5 message processing, FHIR R4 API exposure, multi-database routing, mid-flight data enrichment, cross-channel data flow, and automated FHIR conformance testing via Postman.
 
 ## Architecture
 
@@ -15,17 +15,19 @@ End-to-end healthcare integration system built with BridgeLink (Mirth Connect), 
                             │    ├─▶ Normal file writer (N flag)                   │
                             │    ├─▶ Database Writer → bridgelink_db.lab_results   │
                             │    └─▶ Database Writer → mirthdb.lab_results         │
+                            │         (filtered: abnormal only — HH/LL/H/L)        │
                             │                                                      │
 ┌─────────────────┐         │  ADT_Processing Channel (port 8083)                  │
 │  Hospital ADT    │────────▶│    ├─ Parse event type (A01/A03/A08)                │
-│  (HL7 ADT)       │         │    ├─ UPSERT to patients table                      │
-└─────────────────┘         │    └─ Handles admit, discharge, update               │
+│  (HL7 ADT)       │         │    ├─ Extract PID/EVN/PV1 fields                    │
+└─────────────────┘         │    ├─ UPSERT to patients table                      │
+                            │    └─ Handles admit, discharge, update               │
                             │                                                      │
                             │  FHIR_API Channel (port 8082)                        │
 ┌─────────────────┐         │    ├─ Reads from mirthdb.lab_results                 │
-│  Modern App      │◀───────│    ├─ Returns FHIR R4 Observation Bundle             │
-│  (REST/JSON)     │         │    └─ LOINC coded with interpretation flags          │
-│                  │         │                                                      │
+│  Modern App /    │◀───────│    ├─ Returns FHIR R4 Observation Bundle             │
+│  Postman Suite   │         │    └─ LOINC coded with interpretation flags          │
+│  (REST/JSON)     │         │                                                      │
 │                  │◀───────│  FHIR_Patient_API Channel (port 8084)                │
 └─────────────────┘         │    ├─ Reads from bridgelink_db.patients              │
                             │    └─ Returns FHIR R4 Patient Bundle                 │
@@ -35,10 +37,57 @@ End-to-end healthcare integration system built with BridgeLink (Mirth Connect), 
                             │                   PostgreSQL                         │
                             │                                                      │
                             │  bridgelink_db          mirthdb                      │
-                            │  ├─ lab_results         ├─ lab_results               │
+                            │  ├─ lab_results         ├─ lab_results (abnormal)    │
                             │  ├─ patients            └──────────────              │
                             │  └─ providers (reference)                            │
                             └──────────────────────────────────────────────────────┘
+```
+
+## Postman Test Suites
+
+Two automated test collections validate the FHIR API output end-to-end — 21 tests each, all passing.
+
+### FHIR Conformance & Regression Suite
+
+The base collection runs against the local BridgeLink sandbox with no authentication. Tests are organized into four folders:
+
+| Folder | What It Tests |
+|--------|---------------|
+| **1. Conformance** | FHIR R4 structural validity — Bundle type, required fields, coding system URIs, LOINC terminology coverage (catches `UNKNOWN` code fallback) |
+| **2. Data Integrity Through Transformation** | Known HL7 input (PAT101 glucose 468 mg/dL, flag HH, LOINC 2345-7) survives the full HL7 → DB → FHIR pipeline with value, unit, code, and interpretation intact |
+| **3. Cross-Resource Referential Integrity** | Observation `subject` references resolve to real Patient resources — no orphans |
+| **4. Query Behavior & Edge Cases** | Patient filter prevents data leakage; unknown patient returns empty Bundle (200), not an error |
+
+### FHIR Conformance & Regression Suite (OAuth + Env)
+
+Same test coverage plus an OAuth 2.0 client-credentials folder that acquires a bearer token and caches it for reuse. Skips gracefully when no `tokenUrl` is configured (e.g. the open local sandbox).
+
+### Environment Configs
+
+- **Sandbox** — `localhost:8082` (Observations) / `localhost:8084` (Patients), no auth required
+- **Production** — templated for a secured FHIR endpoint with OAuth credentials (placeholder values)
+
+### Test Results
+
+All three runs: **21/21 tests passing, 0 errors.**
+
+| Run | Environment | Duration |
+|-----|-------------|----------|
+| OAuth suite | Sandbox | 542ms |
+| Base suite | Sandbox | 786ms |
+| OAuth suite | None | 938ms |
+
+![Base Suite — Sandbox](docs/screenshots/postman-base-suite-sandbox-run.png)
+
+![OAuth Suite — Sandbox](docs/screenshots/postman-oauth-suite-sandbox-run.png)
+
+![OAuth Suite — No Environment](docs/screenshots/postman-oauth-suite-no-env-run.png)
+
+Runnable headless via [Newman](https://github.com/postmanlabs/newman) for CI regression:
+
+```bash
+newman run postman/collections/FHIR-Conformance-Suite.postman_collection.json \
+  -e postman/environments/Sandbox.postman_environment.json
 ```
 
 ## What This Demonstrates
@@ -64,18 +113,28 @@ End-to-end healthcare integration system built with BridgeLink (Mirth Connect), 
 - UPSERT logic: duplicate ADT messages update existing rows instead of failing
 - Date casting: HL7 date strings (YYYYMMDD) to PostgreSQL DATE/TIMESTAMP types
 
+**API Testing & Quality Assurance**
+- FHIR R4 conformance validation (structural + semantic)
+- Data integrity assertions through the full transformation pipeline
+- Cross-resource referential integrity checks
+- Negative-path and boundary testing
+- OAuth 2.0 client-credentials flow with token reuse pattern
+- Environment-driven configuration (sandbox vs production) with masked credentials
+- CI-ready via Newman
+
 ## Tech Stack
 
 - **Integration Engine**: BridgeLink 4.6.1 (Mirth Connect fork by Innovar Healthcare)
 - **Database**: PostgreSQL 14+ (two databases: bridgelink_db, mirthdb)
 - **Standards**: HL7 v2.5, FHIR R4, LOINC, HL7 FHIR terminology
 - **Language**: JavaScript (BridgeLink transformers and JavaScript Writers)
-- **Testing**: curl, psql
+- **API Testing**: Postman (collections + environments), Newman (CI runner)
+- **Testing**: curl, psql, Postman Runner
 
 ## Project Structure
 
 ```
-healthcare-integration-portfolio/
+API-Postman-Healthcare-Integration/
 ├── README.md
 ├── channels/
 │   ├── ORU_Routing.xml
@@ -85,6 +144,15 @@ healthcare-integration-portfolio/
 ├── database/
 │   ├── schema.sql
 │   └── seed-data.sql
+├── postman/
+│   ├── collections/
+│   │   ├── FHIR-Conformance-Suite.postman_collection.json
+│   │   └── FHIR-Conformance-Suite-OAuth.postman_collection.json
+│   ├── environments/
+│   │   ├── Sandbox.postman_environment.json
+│   │   └── Production.postman_environment.json
+│   └── globals/
+│       └── workspace.postman_globals.json
 ├── test-messages/
 │   ├── oru/
 │   │   ├── glucose-critical.hl7
@@ -96,6 +164,8 @@ healthcare-integration-portfolio/
 │   │   └── missing-obx.hl7
 │   └── adt/
 │       ├── admit-a01.hl7
+│       ├── admit-pat102.hl7
+│       ├── admit-pat103.hl7
 │       ├── discharge-a03.hl7
 │       ├── update-a08.hl7
 │       └── duplicate-admit.hl7
@@ -104,7 +174,11 @@ healthcare-integration-portfolio/
 │   └── patient-response.json
 └── docs/
     ├── setup-guide.md
-    └── testing-guide.md
+    ├── testing-guide.md
+    └── screenshots/
+        ├── postman-base-suite-sandbox-run.png
+        ├── postman-oauth-suite-sandbox-run.png
+        └── postman-oauth-suite-no-env-run.png
 ```
 
 ## Quick Start
@@ -113,8 +187,9 @@ healthcare-integration-portfolio/
 2. Run database setup: `psql -f database/schema.sql` against both databases
 3. Seed provider data: `psql -d bridgelink_db -f database/seed-data.sql`
 4. Import all four channel XML files into BridgeLink
-5. Deploy channels
-6. See [Setup Guide](docs/setup-guide.md) for detailed instructions
+5. Update JDBC connection strings — replace `${DB_HOST}`, `${DB_PORT}`, `${DB_USERNAME}`, `${DB_PASSWORD}` with your PostgreSQL credentials
+6. Deploy channels
+7. See [Setup Guide](docs/setup-guide.md) for detailed instructions
 
 ## Testing
 
@@ -125,9 +200,16 @@ See [Testing Guide](docs/testing-guide.md) for complete test scenarios including
 - FHIR API response validation
 - Error handling with malformed messages
 
+### Postman Testing
+
+1. Import collections from `postman/collections/` into Postman
+2. Import the Sandbox environment from `postman/environments/`
+3. Select the Sandbox environment and run either collection via the Runner
+4. For CI: `newman run postman/collections/FHIR-Conformance-Suite.postman_collection.json -e postman/environments/Sandbox.postman_environment.json`
+
 ## Key Design Decisions
 
-**Why two databases?** Demonstrates multi-destination routing — a single HL7 message writing to multiple data stores simultaneously, which is common in production where different systems consume the same data.
+**Why two databases?** Demonstrates multi-destination routing — a single HL7 message writing to multiple data stores simultaneously, which is common in production where different systems consume the same data. The mirthdb store only receives abnormal results (HH/LL/H/L) via a destination filter, simulating a clinical alerting pipeline.
 
 **Why UPSERT for ADT?** Hospital systems frequently resend messages (interface restarts, message replays). Without UPSERT, duplicate admits would crash the integration. ON CONFLICT DO UPDATE makes the system resilient to duplicates.
 
@@ -136,3 +218,10 @@ See [Testing Guide](docs/testing-guide.md) for complete test scenarios including
 **Why cross-channel lookup?** Lab results in isolation lack clinical context. Knowing whether a patient is currently admitted when their lab result arrives enables clinical decision support — a critical glucose on an admitted ICU patient is handled differently than one from an outpatient visit.
 
 **Why LOINC codes?** FHIR Observations without standardized terminology coding are not interoperable. LOINC is the universal standard for lab test identification. Including proper coding demonstrates awareness of real-world FHIR compliance requirements.
+
+**Why Postman conformance testing?** Returning 200 OK isn't enough — the FHIR output must be structurally valid R4, use real LOINC codes (not fallback `UNKNOWN`), and preserve clinical data through the transformation pipeline. The test suite caught a real mapping bug where the LOINC lookup keyed on full display names but the database stored abbreviations.
+
+## Known Issues (Portfolio Findings)
+
+- **SQL injection**: FHIR_API and ORU JDBC transformers concatenate `patient_id` directly into SQL queries. Production fix: parameterized queries.
+- These are documented intentionally as security findings to demonstrate awareness of injection vulnerabilities in integration code.
